@@ -1,44 +1,82 @@
-# EdgeTunnel CLI Setup & Deployment
+# Deployment
 
-## Environment Setup
+This repository contains multiple deployable surfaces:
 
-### 1. Worker Environment
-Create `.dev.vars` in `apps/worker/`:
+- `apps/dashboard`: Next.js dashboard intended for Cloudflare Workers
+- `apps/worker`: Edge gateway built directly on Cloudflare Workers
+- `apps/backend`: Optional Node.js controller for proxy routing
+- `apps/cli`: Local developer/client runtime
+
+## 1. Local Environment
+
+Copy the example env file at the repo root:
+
 ```bash
-STACKAUTH_SERVER_TOKEN=<from Stack console>
-REQUEST_SIGNING_SECRET=<generate secure random>
-CONTROLLER_SHARED_SECRET=<generate secure random>
-CONTROLLER_INTERNAL_TOKEN=<generate secure random>
+cp .env.example .env
 ```
 
-### 2. Backend Environment
-Create `.env` in `apps/backend/`:
+Populate the required values locally. Keep real credentials in ignored files
+such as `.env`, `.dev.vars`, and Wrangler-managed secrets.
+
+## 2. Database Setup
+
+Drizzle reads `DATABASE_URL` from your local environment.
+
 ```bash
-PORT=8080
-CONTROLLER_INTERNAL_TOKEN=<match worker token>
-CONTROLLER_SHARED_SECRET=<match worker secret>
-PROXY_NODES_JSON=[{"id":"node-us-east","region":"us","endpoint":"http://proxy:8080","dedicatedOnly":false}]
+bunx drizzle-kit push
 ```
 
-### 3. Cloudflare Deployment
-Export credentials:
+If you need to validate connectivity without applying schema changes:
+
 ```bash
-export CLOUDFLARE_API_TOKEN=cs9y88_5LrxbuPJVH-VgZf61z0LHfzWQajyaexZc
-export CLOUDFLARE_ACCOUNT_ID=091539408595ba99a0ef106d42391d5b
+bun run typecheck
 ```
 
-## Database Setup
+## 3. Cloudflare Authentication
 
-Run migrations:
+Provide Cloudflare credentials through your shell or secret manager before
+running Wrangler commands:
+
 ```bash
-cd packages/config
-bun run build
-npx drizzle-kit push
+export CLOUDFLARE_API_TOKEN=<your-api-token>
+export CLOUDFLARE_ACCOUNT_ID=<your-account-id>
 ```
 
-## Deploy to Cloudflare
+## 4. Worker Secrets
+
+Use Wrangler-managed secrets for sensitive values:
 
 ```bash
 cd apps/worker
-wrangler deploy
+printf '%s' "$REQUEST_SIGNING_SECRET" | bunx wrangler secret put REQUEST_SIGNING_SECRET
+printf '%s' "$CONTROLLER_SHARED_SECRET" | bunx wrangler secret put CONTROLLER_SHARED_SECRET
+printf '%s' "$CONTROLLER_INTERNAL_TOKEN" | bunx wrangler secret put CONTROLLER_INTERNAL_TOKEN
+```
+
+For local development, put the same keys in `apps/worker/.dev.vars`.
+
+## 5. Deploy the Apps
+
+Deploy the edge gateway:
+
+```bash
+cd apps/worker
+bunx wrangler deploy
+```
+
+Deploy the dashboard once its Cloudflare adapter configuration is in place:
+
+```bash
+cd apps/dashboard
+bunx wrangler deploy
+```
+
+## 6. Optional Backend Deployment
+
+If you are running the Node.js proxy controller separately:
+
+```bash
+cd apps/backend
+bun run build
+bun start
 ```
