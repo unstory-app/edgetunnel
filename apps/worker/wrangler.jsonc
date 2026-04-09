@@ -18,15 +18,15 @@
 	"kv_namespaces": [
 		{
 			"binding": "RATE_LIMIT_KV",
-			"id": "edgetunnel_rate_limit",
-			"preview_id": "edgetunnel_rate_limit_preview"
+			"id": "unknown",
+			"preview_id": "unknown"
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "USAGE_DB",
 			"database_name": "edgetunnel_usage",
-			"database_id": "edgetunnel_usage_db"
+			"database_id": "unknown"
 		}
 	],
 	"vars": {
