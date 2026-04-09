@@ -1,314 +1,109 @@
-# 🚀 Project Name: **EdgeTunnel**
+# EdgeTunnel
 
-A one-command, system-wide proxy tool powered by Cloudflare Workers.
-
----
-
-# 🌐 Vision (What Makes This Powerful)
-
-EdgeTunnel works like this:
+EdgeTunnel is a Cloudflare Worker-powered proxy SaaS with a one-command local tunnel:
 
 ```bash
-edgetunnel start
+edgetunnel start --api-key <key> --signing-secret <secret>
 ```
 
-And instantly:
+Traffic path:
 
-* All your system/browser traffic is routed through EdgeTunnel
-* No manual proxy config required
-* No complex setup
-* One command → full proxy experience
+Client -> CLI local proxy (`127.0.0.1:8787`) -> Worker (`/proxy`) -> Backend controller -> rotating proxy nodes -> internet.
 
----
+## Monorepo Layout
 
-# ⚡ User Experience (Ultra Simple)
+```text
+/apps
+  /worker      Cloudflare Worker + Hono
+  /cli         Local proxy daemon and system proxy controls
+  /backend     Proxy controller service (Node.js)
+  /dashboard   Next.js 15 App Router dashboard
+
+/packages
+  /types       Shared Zod schemas and TypeScript types
+  /utils       Logging and common helpers
+  /config      Drizzle schema + DB config
+```
+
+## Requirements
+
+- Bun 1.3+
+- Node.js 22+
+- Cloudflare account + Wrangler
+- PostgreSQL 15+
 
 ## Install
 
 ```bash
-npm install -g edgetunnel
+bun install
 ```
 
-## Start (AUTO MODE)
+## Local Development
+
+### Worker
 
 ```bash
-edgetunnel start
+cd apps/worker
+bun run cf-typegen
+bun run dev
 ```
 
-What happens automatically:
-
-* Starts local proxy server
-* Configures system proxy (Mac/Windows/Linux)
-* Routes traffic via EdgeTunnel network
-
----
-
-## Stop
+### Backend
 
 ```bash
-edgetunnel stop
+cd apps/backend
+cp .env.example .env
+bun run dev
 ```
 
-* Restores original network settings
-
----
-
-## Uninstall
+### CLI
 
 ```bash
-npm uninstall -g edgetunnel
+cd apps/cli
+bun run dev start --api-key <key> --signing-secret <secret> --worker-url https://edgetunnel.com/proxy
 ```
 
----
-
-# 🧠 How "Auto Proxy" Works (Important)
-
-EdgeTunnel uses:
-
-### 1. Local Proxy Server
-
-Runs on:
-
-```
-localhost:3000
-```
-
-### 2. System Proxy Injection
-
-CLI automatically sets:
-
-* macOS → networksetup
-* Windows → registry
-* Linux → environment variables
-
-So ALL apps route traffic through:
-
-```
-localhost:3000 → EdgeTunnel
-```
-
----
-
-# 🌍 Architecture (Detailed)
-
-## Full Flow
-
-Client App (Browser / System)
-↓
-Local Proxy (CLI running on device)
-↓
-Cloudflare Worker (edgetunnel.com/proxy)
-↓
-Routing Engine
-↓
-Proxy Controller (VPS)
-↓
-Rotating Proxy Nodes (Global IPs)
-↓
-Internet
-↓
-Response back same path
-
----
-
-# ⚙️ Tech Stack
-
-## Edge Layer
-
-* Cloudflare Workers
-* Cloudflare KV (rate limiting)
-* Cloudflare D1 (user DB)
-
-## CLI (Core Magic)
-
-* Node.js
-* HTTP proxy server (http-proxy / undici)
-* OS-level proxy control scripts
-
-## Backend
-
-* Node.js / Go (Proxy Controller)
-
-## Infra
-
-* VPS nodes (multi-region)
-
-## Cache / Speed
-
-* Redis
-
----
-
-# 🔐 Security Design
-
-* HTTPS everywhere
-* API key authentication
-* Signed requests from CLI
-* Abuse detection
-* Domain filtering
-
----
-
-# 🔄 Smart Routing Logic
-
-Worker decides:
-
-* Best region
-* Load balancing
-* User plan (free vs pro)
-
-Example:
-
-```
-India user → India proxy
-Pro user → premium IP pool
-```
-
----
-
-# 🌐 Public Proxy Endpoint
-
-All traffic flows through:
-
-```
-https://edgetunnel.com/proxy
-```
-
-Worker acts as:
-
-* Gateway
-* Auth layer
-* Router
-
----
-
-# 💻 CLI Internal Flow
-
-## Step-by-step
-
-1. User runs `edgetunnel start`
-2. CLI:
-
-   * Starts local proxy server
-   * Sets system proxy automatically
-3. Any app request → localhost
-4. CLI forwards → edgetunnel.com/proxy
-5. Worker routes → best proxy node
-6. Node fetches data
-7. Response returned to user
-
----
-
-# 🧪 Example Request Flow
+### Dashboard
 
 ```bash
-User opens Google
-↓
-Request → localhost:3000
-↓
-Forward → edgetunnel.com/proxy
-↓
-Worker → US proxy node
-↓
-Google sees US IP
+cd apps/dashboard
+bun run dev
 ```
 
----
+## Deployment
 
-# 🧠 Modes (Important Feature)
-
-## 1. Full System Mode (default)
+### Cloudflare Worker
 
 ```bash
-edgetunnel start
-```
-
-→ ALL traffic proxied
-
----
-
-## 2. Browser Only Mode
-
-```bash
-edgetunnel start --browser
-```
-
-→ Only sets proxy for browser
-
----
-
-## 3. Manual Mode
-
-```bash
-edgetunnel start --manual
-```
-
-User sets proxy manually:
-
-```
-localhost:3000
-```
-
----
-
-# 🔄 IP Rotation
-
-* Per request rotation
-* Sticky sessions (optional)
-* Geo targeting
-
----
-
-# 📊 Rate Limits
-
-| Plan       | Limit     |
-| ---------- | --------- |
-| Free       | 1K/day    |
-| Pro        | 100K/day  |
-| Enterprise | Unlimited |
-
----
-
-# 🚀 Deployment
-
-## Worker
-
-```bash
+cd apps/worker
 wrangler deploy
 ```
 
-## Backend
+### Backend
+
+Docker:
 
 ```bash
-node server.js
+docker build -f apps/backend/Dockerfile -t edgetunnel-backend .
+docker run --env-file apps/backend/.env.example -p 8080:8080 edgetunnel-backend
 ```
 
----
+PM2:
 
-# ⚠️ Important Limitations
+```bash
+cd apps/backend
+bun run build
+pm2 start ecosystem.config.cjs
+```
 
-* Not a true VPN (no TCP/UDP tunneling)
-* Works primarily for HTTP/HTTPS
-* Some apps may bypass system proxy
+## Security Notes
 
----
+- API key validation on every `/proxy` request via StackAuth introspection.
+- Per-user edge rate limit backed by Cloudflare KV.
+- Signed CLI -> Worker and Worker -> Backend payloads.
+- Domain/IP guardrails to block SSRF-style abuse.
 
-# 🔥 Future Upgrades
+## Limitations
 
-* WireGuard integration (real VPN mode)
-* Desktop app (GUI)
-* Chrome extension
-* AI routing optimization
-
----
-
-# 🧠 Final Summary
-
-EdgeTunnel =
-
-* One command UX
-* Automatic system proxy
-* Cloudflare-powered routing
-* Global rotating IP network
-
-👉 "Run once. Proxy everything."
+- HTTP/HTTPS proxying only.
+- Full HTTPS CONNECT tunneling in CLI is currently not implemented.

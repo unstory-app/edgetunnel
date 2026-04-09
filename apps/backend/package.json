@@ -1,5 +1,5 @@
 {
-    "name": "@edgetunnel/proxy-controller",
+    "name": "@edgetunnel/backend",
     "version": "0.1.0",
     "private": true,
     "type": "module",
@@ -11,9 +11,11 @@
         "lint": "tsc --noEmit"
     },
     "dependencies": {
+        "@edgetunnel/config": "workspace:*",
         "@edgetunnel/types": "workspace:*",
         "@edgetunnel/utils": "workspace:*",
         "fastify": "^5.1.0",
+        "https-proxy-agent": "^7.0.6",
         "undici": "^7.14.0",
         "zod": "^3.24.4"
     },

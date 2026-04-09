@@ -1,8 +1,8 @@
-import { ProxyAgent } from "undici";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 type Plan = "free" | "pro" | "enterprise";
 
-type NodeDescriptor = {
+export type NodeDescriptor = {
     id: string;
     region: string;
     endpoint: string;
@@ -27,6 +27,19 @@ export function pickNode(nodes: NodeDescriptor[], plan: Plan, regionHint?: strin
     return selected;
 }
 
-export function buildDispatcher(node: NodeDescriptor): ProxyAgent {
-    return new ProxyAgent(node.endpoint);
+const proxyAgentPool = new Map<string, HttpsProxyAgent>();
+
+export function getHttpsProxyAgent(node: NodeDescriptor): HttpsProxyAgent {
+    const existing = proxyAgentPool.get(node.endpoint);
+    if (existing) {
+        return existing;
+    }
+
+    const created = new HttpsProxyAgent(node.endpoint, {
+        keepAlive: true,
+        keepAliveMsecs: 15_000,
+        maxSockets: 128,
+    });
+    proxyAgentPool.set(node.endpoint, created);
+    return created;
 }
