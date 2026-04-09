@@ -1,5 +1,7 @@
 import http from "node:http";
-import { request } from "undici";
+import { randomUUID } from "node:crypto";
+import httpProxy from "http-proxy";
+import { ProxyAgent } from "proxy-agent";
 import { signPayload } from "./signature";
 
 type ProxyServerOptions = {
@@ -28,50 +30,50 @@ function buildTargetUrl(req: http.IncomingMessage): string {
 }
 
 export async function startProxyServer(options: ProxyServerOptions): Promise<http.Server> {
-    const server = http.createServer(async (req, res) => {
-        try {
-            const target = buildTargetUrl(req);
-            const chunks: Buffer[] = [];
-            req.on("data", (chunk: Buffer) => chunks.push(chunk));
-            await new Promise<void>((resolve) => req.on("end", () => resolve()));
-            const body = chunks.length ? Buffer.concat(chunks) : undefined;
-
-            const signingPayload = JSON.stringify({
-                method: req.method ?? "GET",
-                url: target,
-                headers: req.headers,
-                bodyHash: body?.toString("base64") ?? "",
-                ts: Math.floor(Date.now() / 1000),
-            });
-
-            const signature = signPayload(signingPayload, options.signingSecret);
-            const upstream = await request(options.workerProxyUrl, {
-                method: req.method,
-                headers: {
-                    ...Object.fromEntries(Object.entries(req.headers).filter(([k]) => k.toLowerCase() !== "host")),
-                    "x-api-key": options.apiKey,
-                    "x-edgetunnel-target": target,
-                    "x-edgetunnel-signature": signature,
-                    "content-type": req.headers["content-type"] ?? "application/octet-stream",
-                },
-                body,
-            });
-
-            res.writeHead(upstream.statusCode, upstream.headers as http.OutgoingHttpHeaders);
-            for await (const chunk of upstream.body) {
-                res.write(chunk);
-            }
-            res.end();
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "proxy failure";
-            res.writeHead(502, { "content-type": "application/json" });
-            res.end(JSON.stringify({ error: message }));
-        }
+    const upstreamAgent = new ProxyAgent();
+    const proxy = httpProxy.createProxyServer({
+        target: options.workerProxyUrl,
+        changeOrigin: true,
+        xfwd: true,
+        secure: true,
+        ignorePath: true,
+        prependPath: false,
+        agent: upstreamAgent,
     });
 
-    // HTTPS CONNECT requires full tunneling support; intentionally explicit for now.
+    proxy.on("error", (error, _req, res) => {
+        if (!res || !("writeHead" in res)) {
+            return;
+        }
+
+        const message = error instanceof Error ? error.message : "proxy failure";
+        res.writeHead(502, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: message }));
+    });
+
+    proxy.on("proxyReq", (proxyReq, req) => {
+        const target = buildTargetUrl(req as http.IncomingMessage);
+        const ts = String(Math.floor(Date.now() / 1000));
+        const nonce = randomUUID();
+        const signaturePayload = [req.method ?? "GET", target, ts, nonce].join("\n");
+        const signature = signPayload(signaturePayload, options.signingSecret);
+
+        proxyReq.path = "/proxy";
+        proxyReq.setHeader("x-api-key", options.apiKey);
+        proxyReq.setHeader("x-edgetunnel-target", target);
+        proxyReq.setHeader("x-edgetunnel-ts", ts);
+        proxyReq.setHeader("x-edgetunnel-nonce", nonce);
+        proxyReq.setHeader("x-edgetunnel-signature", signature);
+        proxyReq.setHeader("x-forwarded-proto", "http");
+        proxyReq.setHeader("x-edgetunnel-client", "cli");
+    });
+
+    const server = http.createServer((req, res) => {
+        proxy.web(req, res);
+    });
+
     server.on("connect", (_req, socket) => {
-        socket.write("HTTP/1.1 501 Not Implemented\\r\\n\\r\\n");
+        socket.write("HTTP/1.1 501 Not Implemented\r\n\r\n");
         socket.destroy();
     });
 
