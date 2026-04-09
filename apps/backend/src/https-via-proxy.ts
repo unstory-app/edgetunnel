@@ -3,19 +3,13 @@ import https from "node:https";
 import { URL } from "node:url";
 import type { HttpsProxyAgent } from "https-proxy-agent";
 
-export type ProxyHttpResponse = {
-  statusCode: number;
-  headers: IncomingHttpHeaders;
-  stream: NodeJS.ReadableStream;
-};
-
 export async function httpsRequestViaProxy(input: {
   url: string;
   method: string;
   headers: Record<string, string>;
   body?: Buffer;
-  agent: HttpsProxyAgent;
-}): Promise<ProxyHttpResponse> {
+  agent: HttpsProxyAgent<string>;
+}): Promise<{ statusCode: number; headers: IncomingHttpHeaders; stream: NodeJS.ReadableStream }> {
   const target = new URL(input.url);
 
   return new Promise<ProxyHttpResponse>((resolve, reject) => {
