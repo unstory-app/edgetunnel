@@ -1,3 +1,5 @@
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { bigint, boolean, integer, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const planTier = pgEnum("plan_tier", ["free", "pro", "enterprise"]);
@@ -42,3 +44,24 @@ export const usageLogs = pgTable("usage_logs", {
     statusCode: integer("status_code").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+export type EdgeTunnelDb = ReturnType<typeof createDb>;
+
+export function createDb(url?: string) {
+  const dbUrl = url || process.env.DATABASE_URL || "postgresql://neondb_owner:npg_a9MdqiY0HcOG@ep-bitter-sea-ansolhhi-pooler.c-6.us-east-1.aws.neon.tech/neondb";
+  const client = postgres(dbUrl, {
+    max: 20,
+    prepare: false,
+    idle_timeout: 20,
+    connect_timeout: 10,
+  });
+
+  return drizzle(client, {
+    schema: {
+      plans,
+      users,
+      apiKeys,
+      usageLogs,
+      planTier,
+    },
+  });
+}
