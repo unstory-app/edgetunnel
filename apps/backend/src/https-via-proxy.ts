@@ -12,7 +12,7 @@ export async function httpsRequestViaProxy(input: {
 }): Promise<{ statusCode: number; headers: IncomingHttpHeaders; stream: NodeJS.ReadableStream }> {
   const target = new URL(input.url);
 
-  return new Promise<ProxyHttpResponse>((resolve, reject) => {
+  return new Promise<{ statusCode: number; headers: IncomingHttpHeaders; stream: NodeJS.ReadableStream }>((resolve, reject) => {
     const req = https.request(
       {
         protocol: target.protocol,
