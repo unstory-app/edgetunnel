@@ -1,0 +1,62 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum PlanTier {
+    free
+    pro
+    enterprise
+}
+
+model User {
+    id          String     @id @default(uuid())
+    email       String     @unique
+    stackAuthId String     @unique
+    createdAt   DateTime   @default(now())
+    updatedAt   DateTime   @updatedAt
+    planId      String
+    plan        Plan       @relation(fields: [planId], references: [id])
+    apiKeys     ApiKey[]
+    usageLogs   UsageLog[]
+}
+
+model Plan {
+    id               String   @id @default(uuid())
+    name             String   @unique
+    tier             PlanTier
+    monthlyBandwidth BigInt
+    dedicatedNode    Boolean  @default(false)
+    users            User[]
+}
+
+model ApiKey {
+    id        String    @id @default(uuid())
+    userId    String
+    keyHash   String    @unique
+    keyPrefix String
+    createdAt DateTime  @default(now())
+    expiresAt DateTime?
+    revokedAt DateTime?
+    user      User      @relation(fields: [userId], references: [id])
+}
+
+model UsageLog {
+    id         String   @id @default(uuid())
+    userId     String
+    requestId  String   @unique
+    method     String
+    targetHost String
+    bytesIn    BigInt
+    bytesOut   BigInt
+    latencyMs  Int
+    statusCode Int
+    createdAt  DateTime @default(now())
+    user       User     @relation(fields: [userId], references: [id])
+
+    @@index([userId, createdAt])
+}

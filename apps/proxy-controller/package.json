@@ -1,0 +1,25 @@
+{
+  "name": "@edgetunnel/proxy-controller",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@edgetunnel/types": "workspace:*",
+    "@edgetunnel/utils": "workspace:*",
+    "fastify": "^5.1.0",
+    "undici": "^7.14.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,13 +1,19 @@
 {
-	"name": "worker",
+	"name": "@edgetunnel/worker",
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
+		"build": "wrangler deploy --dry-run",
+		"lint": "tsc --noEmit",
+		"typecheck": "tsc --noEmit",
 		"test": "vitest",
 		"cf-typegen": "wrangler types"
+	},
+	"dependencies": {
+		"hono": "^4.9.6"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.12.4",
